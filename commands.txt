@@ -1,0 +1,43 @@
+GENERAL COMMANDS
+
+$question <question> - you will get an answer yes/no for your question
+
+$randomnumber <number 1> <number2> - return a random number from this interval
+
+$count <mathematical operation> - return result
+
+MUSIC COMMANDS
+
+$play <track1; track2; ...> - adding tracks to queue. With first using od this commands bot will join to the voice channel.
+
+$pause - pause music
+
+$resume - resume music
+
+$skip - skip this track
+
+$nowplaying - informations about actual track
+
+$queue - show queue
+
+$remove <number from queue> - remove track with this number from queue
+
+$stop - disconnect bot from voice channel
+
+LEAGUE OF LEGENDS COMMANDS
+
+$randomchampion - random champion from game
+
+$randomtop / $randomjg / $randommid / $randomadc / $ randomsupp - random champion for this role
+
+$randomteam - return a random team (one champion per role)
+
+$createchampionbase <name> - create base of champions for player (suggestion: use your name / nickname for name of file)
+
+$addchampion <name of file> <name of champion> - add champion to base
+
+$deletechampion <name of file> <name of champion> - delete champion from base
+
+$champions <name of file> - show all champion from this base
+
+$randomchampionfor <name of file> - return a random champion from this base
