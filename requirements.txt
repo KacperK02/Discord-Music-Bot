@@ -1,0 +1,6 @@
+discord.py
+asyncio
+PyNaCl
+nextcord
+wavelink
+datetime
