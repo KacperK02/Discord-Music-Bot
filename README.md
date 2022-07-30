@@ -14,7 +14,7 @@ How to use bot?
 
 Run the bot by opening folder in terminal and using command:
 
-python bot.py\n
+python bot.py
 
 You can find all commands in file commands.txt
 
