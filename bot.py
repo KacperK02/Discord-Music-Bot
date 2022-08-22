@@ -1,10 +1,10 @@
 import random
 import discord
 import os
-import nextcord
 import wavelink
 import datetime
-from nextcord.ext import commands
+import codecs
+from discord.ext import commands
 
 bot = commands.Bot(command_prefix='$', intents=discord.Intents.all())
 
@@ -51,6 +51,41 @@ async def node_connect():
     await wavelink.NodePool.create_node(bot=bot, host='lavalinkinc.ml', port=443, password='incognito', https=True)
 
 
+async def delete_from_queue():
+    path = os.path.join("files", "queue.txt")
+    with open(path, 'r') as f:
+        data = f.read().splitlines(True)
+    with open(path, 'w') as f:
+        f.writelines(data[1:])
+
+
+async def load_queue(ctx, vc):
+    em = discord.Embed(title="Wczytuję utwory z poprzedniej kolejki...")
+    await ctx.send(embed=em)
+    path = os.path.join("files", "queue.txt")
+    f = codecs.open(path, "r", "utf-8")
+    counter = 0
+    for line in f:
+        counter += 1
+        if line != '':
+            try:
+                search = await wavelink.YouTubeTrack.search(query=line, return_first=True)
+                if vc.queue.is_empty and not vc.is_playing():
+                    await vc.play(search)
+                    em = discord.Embed(title=f"Aktualnie odtwarzam: {search.title}")
+                    await ctx.send(embed=em)
+                    await delete_from_queue()
+                else:
+                    await vc.queue.put_wait(search)
+                vc.ctx = ctx
+                setattr(vc, "loop", False)
+            except:
+                ctx.send("Nie udało się wczytać jakiegoś utworu")
+    em = discord.Embed(title=f"Wczytano {counter} utworów")
+    await ctx.send(embed=em)
+    f.close()
+
+
 @bot.event
 async def on_wavelink_track_end(player: wavelink.Player, track: wavelink.Track, reason):
     ctx = player.ctx
@@ -60,11 +95,23 @@ async def on_wavelink_track_end(player: wavelink.Player, track: wavelink.Track, 
 
     next_song = vc.queue.get()
     await vc.play(next_song)
-    em = nextcord.Embed(title=f"Now playing: {next_song.title}", description="")
+    em = discord.Embed(title=f"Now playing: {next_song.title}", description="")
     await ctx.send(embed=em)
+    await delete_from_queue()
 
 
-@bot.command()
+@bot.command(aliases=['j'])
+async def join(ctx):
+    if ctx.author.voice is None:
+        return await ctx.send("Firstly, you must join to the voice channel, ok?")
+    if not ctx.voice_client:
+        vc: wavelink.Player = await ctx.author.voice.channel.connect(cls=wavelink.Player)
+        await load_queue(ctx, vc)
+    else:
+        return await ctx.send("I'm in the voice channel")
+
+
+@bot.command(aliases=['add', 'a'])
 async def play(ctx, *, songs):
     if ctx.author.voice is None:
         return await ctx.send("Firstly, you must join to the voice channel, ok?")
@@ -85,21 +132,24 @@ async def play(ctx, *, songs):
         if songs_list[i] != '':
             search = await wavelink.YouTubeTrack.search(query=songs_list[i])
             if vc.queue.is_empty and not vc.is_playing():
-                em = nextcord.Embed(title=f"{search[0].title}", description=f"Added to queue")
+                em = discord.Embed(title=f"{search[0].title}", description=f"Added to queue")
                 await ctx.send(embed=em)
             if vc.queue.is_empty and not vc.is_playing():
                 await vc.play(search[0])
-                em = nextcord.Embed(title=f"Now playing: {search[0].title}", description="")
+                em = discord.Embed(title=f"Now playing: {search[0].title}", description="")
                 await ctx.send(embed=em)
+                await delete_from_queue()
             else:
                 await vc.queue.put_wait(search[0])
-                em = nextcord.Embed(title=f"{search[0].title}", description=f"Added to queue")
+                em = discord.Embed(title=f"{search[0].title}", description=f"Added to queue")
                 await ctx.send(embed=em)
+                with codecs.open(path, "a", "utf-8") as f:
+                    f.write(search.title + '\n')
             vc.ctx = ctx
             setattr(vc, "loop", False)
 
 
-@bot.command()
+@bot.command(aliases=['p', 'pausa', 'pauza', 'pauze'])
 async def pause(ctx):
     if ctx.author.voice is None:
         return await ctx.send("Firstly, you must join to the voice channel, ok?")
@@ -111,7 +161,7 @@ async def pause(ctx):
     await ctx.send("Music has been paused")
 
 
-@bot.command()
+@bot.command(aliases=['r'])
 async def resume(ctx):
     if ctx.author.voice is None:
         return await ctx.send("Firstly, you must join to the voice channel, ok?")
@@ -123,7 +173,7 @@ async def resume(ctx):
     await ctx.send("Let's play")
 
 
-@bot.command()
+@bot.command(aliases=['s'])
 async def skip(ctx):
     if ctx.author.voice is None:
         return await ctx.send("Firstly, you must join to the voice channel, ok?")
@@ -141,7 +191,7 @@ async def skip(ctx):
     await ctx.send("Ok, let's move on to the next track")
 
 
-@bot.command()
+@bot.command(aliases=['leave', 'l'])
 async def stop(ctx):
     if ctx.author.voice is None:
         return await ctx.send("Firstly, you must join to the voice channel, ok?")
@@ -153,7 +203,7 @@ async def stop(ctx):
     await ctx.send("Bye")
 
 
-@bot.command()
+@bot.command(aliases=['q'])
 async def queue(ctx):
     if not ctx.voice_client:
         return await ctx.send("Nothing is currently playing")
@@ -163,7 +213,7 @@ async def queue(ctx):
     if vc.queue.is_empty:
         return await ctx.send("Queue is empty")
 
-    em = nextcord.Embed(title="Queue")
+    em = discord.Embed(title="Queue")
     queue = vc.queue.copy()
     song_count = 0
     em.add_field(name="Now playing: ", value=vc.track.title + ' (' + str(datetime.timedelta(seconds=vc.track.length)) + ')')
@@ -173,7 +223,7 @@ async def queue(ctx):
     return await ctx.send(embed=em)
 
 
-@bot.command()
+@bot.command(aliases=['delete', 'del', 'd'])
 async def remove(ctx, pos):
     if ctx.author.voice is None:
         return await ctx.send("Firstly, you must join to the voice channel, ok?")
@@ -184,6 +234,13 @@ async def remove(ctx, pos):
 
     try:
         vc.queue.__delitem__(int(pos) - 1)
+        path = os.path.join("files", "queue.txt")
+        with open(path, "r") as f:
+            lines = f.readlines()
+        with open(path, "w") as f:
+            for number, line in enumerate(lines):
+                if number != int(pos) - 1:
+                    f.write(line)
         return await ctx.send("Track has been removed from queue")
     except:
         return await ctx.send("There's no such number")
@@ -198,7 +255,7 @@ async def nowplaying(ctx):
     else:
         vc: wavelink.Player = ctx.voice_client
 
-    em = nextcord.Embed(title=f"Now playing: {vc.track.title}", description=f"Artist: {vc.track.author}")
+    em = discord.Embed(title=f"Now playing: {vc.track.title}", description=f"Artist: {vc.track.author}")
     em.add_field(name="Duration:", value=str(datetime.timedelta(seconds=vc.track.length)))
     em.add_field(name="Link:", value=str(vc.track.uri))
     return await ctx.send(embed=em)
@@ -332,8 +389,6 @@ async def randomteam(ctx):
 
 
 path = os.path.join("files", "token.txt")
-f = open(path, "r")
-token = f.readline()
-f.close()
-
+with open(path, "r") as f:
+    token = f.readline()
 bot.run(token)

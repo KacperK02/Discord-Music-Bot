@@ -1,6 +1,4 @@
-discord.py
-asyncio
-PyNaCl
-nextcord
+git+https://github.com/Rapptz/discord.py.git
 wavelink
 datetime
+pynacl
